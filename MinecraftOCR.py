@@ -16,13 +16,15 @@ class OCR:
         # TODO: Figure out how to make dynamic
         self.maxCharHeight = 8
         self.maxCharWidth = 8
+        # The number of dots between lines
+        self.lineSpacing = 1
         self.dotSize = 2
 
         # Create a matrix that will store for each coordinate all characters that have a pixel at that coordinate
         self.possibleCharsMatrix = [[[] for _ in range(self.maxCharHeight)] for _ in range(self.maxCharWidth)]
 
         # Create a dictionary that will store the how many pixels long each character is.
-        self.charLength = {}
+        self.charLengths = {}
 
         # Load the image into an array for easier processing
         # This isn't the most efficient way to do this, but it should be fine for now.
@@ -43,9 +45,9 @@ class OCR:
                     currentY = coords[1] + y
                     if alphabetImgArr[currentX, currentY][3] != 0:
                         self.possibleCharsMatrix[x][y].append(char)
-                        lastColumnWithPixel = y
+                        lastColumnWithPixel = x + 1
 
-            self.charLength[char] = lastColumnWithPixel
+            self.charLengths[char] = lastColumnWithPixel
 
         # Process all of the characters
         imageWidth, imageHeight = alphabetImage.size
@@ -56,50 +58,95 @@ class OCR:
             # Process this character
             processCharacter(constant.ALPHABET[index], currentCoords)
 
+        # Set the length of the space character
+        self.charLengths[' '] = 4
+
     def recognizeLetter(self, imageArr, coords):
-        chars = constant.ALPHABET
+        print(coords)
+        possibleChars = constant.ALPHABET
         colors = constant.COLORS
-        # This will have a potential error as if the letter is recognized on pixel (7, 7),
-        # there will be no chance to return it.
+
+        # FIXME: This will have a potential error as if the letter is recognized on pixel (7, 7),
+        # FIXME: there will be no chance to return it.
+
+        # Define a function that returns true if the pixel matches on of the colors in colorArr
+        def colorMatches(pixel, colorArr):
+            print(pixel)
+            for color in colorArr:
+                if pixel == color:
+                    return True
+            print("No color match")
+            return False
+
+        # Iterate through every pixel in the character until we know exactly which character this is.
         for x in range(8):
             for y in range(8):
-                print((x, y))
-                if len(chars) == 1:
+                #print("Current (x, y): " + str((x, y)))
+                #print(str(len(possibleChars)) + " possible characters remaining.")
+                # If there is only 1 possible character remaining, the input must be that character.
+                if len(possibleChars) == 0:
+                    print("Could not recognize character at " + str((coords[0], coords[1])))
+                    return ' '
+                elif len(possibleChars) == 1:
                     print("The answer is:")
-                    print(chars)
-                    return chars[0]
-                elif len(chars) == 0:
-                    print("0 possible characters remaining")
+                    print(possibleChars)
+                    return possibleChars[0]
                 else:
-                    # times 2 to account for the size of each dot
-                    if imageArr[coords[0] + x * 2, coords[1] + y * 2][3] != 0:
-                        # if len(colors) != 1:
-                        # figure out how to match colors here
-                        print("possible letters for this pixel are:")
-                        print(self.possibleCharsMatrix[x][y])
-                        chars = np.intersect1d(chars, self.possibleCharsMatrix[x][y])
-                        print("intersected")
-                        print(chars)
-                    else:
-                        print("possible letters for this pixel are:")
-                        print(self.possibleCharsMatrix[x][y])
-                        chars = np.setdiff1d(chars, self.possibleCharsMatrix[x][y])
-                        print("set diffed")
-                        print(chars)
+                    currentX = coords[0] + x * self.dotSize
+                    currentY = coords[1] + y * self.dotSize
+                    if colorMatches(imageArr[currentX, currentY], colors):
+                        # NOTE: If necessary, this can be optimized by reducing the size of the color array to
+                        # just the color of this pixel.
+                        #print("possible letters for this pixel are:")
+                        #print(self.possibleCharsMatrix[x][y])
+                        possibleChars = np.intersect1d(possibleChars, self.possibleCharsMatrix[x][y])
+                        #print("intersected")
+                        #print(possibleChars)
+                    else:  # There is no pixel of the colors we care about at the current coordinates
+                        #print("possible letters for this pixel are:")
+                        #print(self.possibleCharsMatrix[x][y])
+                        possibleChars = np.setdiff1d(possibleChars, self.possibleCharsMatrix[x][y])
+                        #print("set diffed")
+                        #print(possibleChars)
 
-        print("Checked all pixels, and idk what letter it is.")
+        print("We got out here, and this shouldn't happen.")
 
-    def processImage(self, imageArr):
-        coords = (0, 0)
-        chars = []
-        # for y in range(0, len(imageArr[0], 9*2):
-        chars.append(self.recognizeLetter(imageArr, coords))
-        chars.append(self.recognizeLetter(imageArr, (6 * 2, 0)))
-        return chars
+    def processImage(self, image):
+        imgWidth, imgHeight = image.size
+        imageArr = image.load()
+
+        coords = [0, 0]
+        text = []
+        currentLine = []
+
+        emptyColumnCount = 0
+        while coords[1] < imgHeight:
+            nextChar = self.recognizeLetter(imageArr, coords)
+            # If the next char couldn't be recognized or we think it is a space, move over 1 column because there might
+            # just be some wack text formatting.
+            if nextChar == ' ':
+                emptyColumnCount += 1
+                coords[0] += self.dotSize
+            else:
+                # Add however many spaces we need to.
+                for _ in range(emptyColumnCount // self.charLengths[' ']):
+                    currentLine.append(' ')
+                emptyColumnCount = 0
+
+                currentLine.append(nextChar)
+                coords[0] = coords[0] + (self.charLengths[nextChar] + 1) * self.dotSize
+                if coords[0] >= imgWidth:
+                    coords[1] += (coords[0] // imgWidth) * (self.dotSize * (self.maxCharHeight + self.lineSpacing))
+                    coords[0] = 0
+                    text.append(currentLine)
+                    currentLine = []
+
+        return text
 
     def recognizeTeamHealth(self):
         img = ImageGrab.grab().crop(constant.TEAM_HEALTH_RECTANGLE)
         img.save('score.png', 'PNG')
+        return self.processImage(img)
 
     # def recognizeDamage(self):
     # TODO
@@ -115,6 +162,6 @@ class OCR:
         # Scan this column of the input,
 
 
-a = OCR(Image.open('D:\\Python\\AnniScraper\\ascii.png'))
-img = Image.open('D:\\Python\\AnniScraper\\test.png').load()
-print(a.recognizeLetter(img, (0, 0)))
+#a = OCR(Image.open('D:\\Python\\AnniScraper\\ascii.png'))
+#img = Image.open('D:\\Python\\AnniScraper\\score.png')
+#print(a.processImage(img))
