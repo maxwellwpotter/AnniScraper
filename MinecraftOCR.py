@@ -143,10 +143,7 @@ class OCR:
 
         return text
 
-    def recognizeTeamHealth(self):
-        img = ImageGrab.grab().crop(constant.TEAM_HEALTH_RECTANGLE)
-        img.save('score.png', 'PNG')
-        return self.processImage(img)
+
 
     # def recognizeDamage(self):
     # TODO
