@@ -1,48 +1,53 @@
-from typing import Tuple
+
+
+import numpy as np
+from PIL import PyAccess
+from PIL import Image
+from PIL import ImageGrab
+from recordclass import recordclass
 
 import constant
 
-import numpy as np
-from PIL import Image
-from PIL import ImageGrab
+Coordinate2D = recordclass('Coordinate2D', 'x y')
+RecognizedCharacter = recordclass('RecognizedCharacter', 'character colors')
 
 
 class OCR:
+    __lineSpacing = 1
+    __spaceLength = 4
 
-    def __init__(self, alphabetImage):
+    def __init__(self, alphabetImage: Image, charHeight: int, charWidth: int, dotSize: int):
+        self.maxCharHeight = charHeight
+        self.maxCharWidth = charWidth
+        self.dotSize = dotSize
 
-        # For the given alphabet, figure out how to recognize each character.
-
-        # TODO: Figure out how to make dynamic
-        self.maxCharHeight = 8
-        self.maxCharWidth = 8
-        # The number of dots between lines
-        self.lineSpacing = 1
-        self.dotSize = 2
-
-        # Create a matrix that will store for each coordinate all characters that have a pixel at that coordinate
+        # Figure out a way of telling each character apart
+        # Create a matrix that will store for every coordinate all characters that have a pixel at there
         self.possibleCharsMatrix = [[[] for _ in range(self.maxCharHeight)] for _ in range(self.maxCharWidth)]
 
-        # Create a dictionary that will store the how many pixels long each character is.
+        # Dictionary to store how many dots wide every character is
         self.charLengths = {}
 
         # Load the image into an array for easier processing
         # This isn't the most efficient way to do this, but it should be fine for now.
         alphabetImgArr = alphabetImage.load()
 
-        # Begin processing the alphabet.
+        # For the given alphabet, figure out how to recognize each character.
+
         # For each character, loop through all of its pixels and if the pixel is present at a given (x, y), add
         # that letter to possibleCharsMatrix[x][y].
         # Also record for each character how many pixels wide it is.
 
         # Function to process the pixels of a given character
         # Takes a string representing the character and the coordinates of the top left of the character.
-        def processCharacter(char: str, coords: Tuple[int, int]):
+        def processCharacter(char: str, coords: Coordinate2D):
             lastColumnWithPixel = 0
             for x in range(0, self.maxCharWidth):
+
                 for y in range(0, self.maxCharHeight):
-                    currentX = coords[0] + x
-                    currentY = coords[1] + y
+
+                    currentX = coords.x + x
+                    currentY = coords.y + y
                     if alphabetImgArr[currentX, currentY][3] != 0:
                         self.possibleCharsMatrix[x][y].append(char)
                         lastColumnWithPixel = x + 1
@@ -51,114 +56,111 @@ class OCR:
 
         # Process all of the characters
         imageWidth, imageHeight = alphabetImage.size
-        for index in range(len(constant.ALPHABET)):
+        for i in range(len(constant.ALPHABET)):
             # Calculate the coordinates for the next character
-            currentCoords = ((index * self.maxCharWidth % imageWidth),
-                             (index * self.maxCharWidth // imageWidth) * self.maxCharHeight)
-            # Process this character
-            processCharacter(constant.ALPHABET[index], currentCoords)
+            currentCoords = Coordinate2D((i * self.maxCharWidth % imageWidth),
+                                         (i * self.maxCharWidth // imageWidth) * self.maxCharHeight)
+
+            # Process the character at these coordinates
+            processCharacter(constant.ALPHABET[i], currentCoords)
 
         # Set the length of the space character
-        self.charLengths[' '] = 4
+        self.charLengths[' '] = self.__spaceLength
 
-    def recognizeLetter(self, imageArr, coords):
-        print(coords)
+    def recognizeLetter(self, loadedImage: PyAccess, coords: Coordinate2D):
         possibleChars = constant.ALPHABET
         colors = constant.COLORS
 
         # FIXME: This will have a potential error as if the letter is recognized on pixel (7, 7),
         # FIXME: there will be no chance to return it.
 
-        # Define a function that returns true if the pixel matches on of the colors in colorArr
+        # Define a function that returns true if the pixel matches on of the colors in colorArr.
         def colorMatches(pixel, colorArr):
-            print(pixel)
+            # print("Pixel color: " + str(pixel))
             for color in colorArr:
                 if pixel == color:
+                    # print("Color match")
                     return True
-            print("No color match")
+
+            # ("No color match")
             return False
 
-        # Iterate through every pixel in the character until we know exactly which character this is.
+        # Iterate through every pixel in the character until we know exactly which character it is.
         for x in range(8):
             for y in range(8):
-                #print("Current (x, y): " + str((x, y)))
-                #print(str(len(possibleChars)) + " possible characters remaining.")
+                # print("Possible characters:")
+                # print(possibleChars)
+                # print("Current colors: " + str(colors))
+                # print("Current (x, y): " + str((x, y)))
+                # print(str(len(possibleChars)) + " possible characters remaining.")
                 # If there is only 1 possible character remaining, the input must be that character.
-                if len(possibleChars) == 0:
-                    print("Could not recognize character at " + str((coords[0], coords[1])))
-                    return ' '
-                elif len(possibleChars) == 1:
-                    print("The answer is:")
-                    print(possibleChars)
-                    return possibleChars[0]
+                if len(possibleChars) == 1:
+                    # print("The answer is:" + str(possibleChars))
+                    return RecognizedCharacter(possibleChars[0], colors)
+                # If no character could be recognized, return the empty string
+                elif len(possibleChars) == 0:
+                    # print("Could not recognize character at " + str((coords[0], coords[1])))
+                    return RecognizedCharacter('', None)
                 else:
-                    currentX = coords[0] + x * self.dotSize
-                    currentY = coords[1] + y * self.dotSize
-                    if colorMatches(imageArr[currentX, currentY], colors):
-                        # NOTE: If necessary, this can be optimized by reducing the size of the color array to
-                        # just the color of this pixel.
-                        #print("possible letters for this pixel are:")
-                        #print(self.possibleCharsMatrix[x][y])
+                    currentX = coords.x + x * self.dotSize
+                    currentY = coords.y + y * self.dotSize
+                    # print(currentX)
+                    # print(currentY)
+                    if colorMatches(loadedImage[currentX, currentY], colors):
+                        colors = [loadedImage[currentX, currentY]]
                         possibleChars = np.intersect1d(possibleChars, self.possibleCharsMatrix[x][y])
-                        #print("intersected")
-                        #print(possibleChars)
                     else:  # There is no pixel of the colors we care about at the current coordinates
-                        #print("possible letters for this pixel are:")
-                        #print(self.possibleCharsMatrix[x][y])
                         possibleChars = np.setdiff1d(possibleChars, self.possibleCharsMatrix[x][y])
-                        #print("set diffed")
-                        #print(possibleChars)
 
-        print("We got out here, and this shouldn't happen.")
+        if len(possibleChars) == 1:
+            # ("The answer is:")
+            # print(possibleChars)
+            return RecognizedCharacter(possibleChars[0], colors)
+        else:  # If no character could be recognized, return the empty string
+            # print("Could not recognize character at " + str((coords[0], coords[1])))
+            return RecognizedCharacter('', None)
 
-    def processImage(self, image):
+    def processImage(self, image: Image):
         imgWidth, imgHeight = image.size
-        imageArr = image.load()
+        loadedImage = image.load()
 
-        coords = [0, 0]
+        coords = Coordinate2D(0, 0)
         text = []
         currentLine = []
 
         emptyColumnCount = 0
-        while coords[1] < imgHeight:
-            nextChar = self.recognizeLetter(imageArr, coords)
-            # If the next char couldn't be recognized or we think it is a space, move over 1 column because there might
-            # just be some wack text formatting.
-            if nextChar == ' ':
+        while coords.y < imgHeight:
+            # print(coords)
+            nextChar = self.recognizeLetter(loadedImage, coords)
+            # print(nextChar)
+            # If the next char couldn't be recognized or we think it is a space, move over 1 column because there
+            # might be some wack text formatting.
+            if nextChar.character == ' ' or nextChar.character == '':
                 emptyColumnCount += 1
-                coords[0] += self.dotSize
-            else:
+                coords.x += self.dotSize
+            else:  # Otherwise, we recognized the character
                 # Add however many spaces we need to.
-                for _ in range(emptyColumnCount // self.charLengths[' ']):
-                    currentLine.append(' ')
+                # If there is no text in the line yet, we don't add any spaces.
+                if len(currentLine) != 0:
+                    for _ in range(emptyColumnCount // self.charLengths[' ']):
+                        # print("Added space")
+                        currentLine.append(RecognizedCharacter(' ', []))
                 emptyColumnCount = 0
 
                 currentLine.append(nextChar)
-                coords[0] = coords[0] + (self.charLengths[nextChar] + 1) * self.dotSize
-                if coords[0] >= imgWidth:
-                    coords[1] += (coords[0] // imgWidth) * (self.dotSize * (self.maxCharHeight + self.lineSpacing))
-                    coords[0] = 0
-                    text.append(currentLine)
-                    currentLine = []
+                coords.x += (self.charLengths[nextChar.character] + 1) * self.dotSize
+
+            if coords.x >= imgWidth:
+                coords.y += (self.dotSize * (self.maxCharHeight + self.__lineSpacing))
+                coords.x = 0
+                text.append(currentLine)
+                currentLine = []
 
         return text
-
-
 
     # def recognizeDamage(self):
     # TODO
 
-    def __scanForText(self, image, colors):
-        imgArr = image.load()
-        # The current coordinates, saved as (x, y)
-        coords = (0, 0)
-
-        # Every character will be 7 dots tall, and between 1 and 5 dots wide.
-        # There is a 1 dot  gap between every character, and a space is 3 dots wide.
-
-        # Scan this column of the input,
-
-
-#a = OCR(Image.open('D:\\Python\\AnniScraper\\ascii.png'))
-#img = Image.open('D:\\Python\\AnniScraper\\score.png')
-#print(a.processImage(img))
+# a = OCR(Image.open('D:\\Python\\AnniScraper\\ascii.png'))
+# img = Image.open('D:\\Python\\AnniScraper\\score.png')
+# print(a.processImage(img))
