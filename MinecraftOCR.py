@@ -1,15 +1,10 @@
-
-
 import numpy as np
 from PIL import PyAccess
 from PIL import Image
 from PIL import ImageGrab
-from recordclass import recordclass
 
 import constant
-
-Coordinate2D = recordclass('Coordinate2D', 'x y')
-RecognizedCharacter = recordclass('RecognizedCharacter', 'character colors')
+import helpers
 
 
 class OCR:
@@ -40,7 +35,7 @@ class OCR:
 
         # Function to process the pixels of a given character
         # Takes a string representing the character and the coordinates of the top left of the character.
-        def processCharacter(char: str, coords: Coordinate2D):
+        def processCharacter(char: str, coords: helpers.Coordinate2D):
             lastColumnWithPixel = 0
             for x in range(0, self.maxCharWidth):
 
@@ -58,8 +53,8 @@ class OCR:
         imageWidth, imageHeight = alphabetImage.size
         for i in range(len(constant.ALPHABET)):
             # Calculate the coordinates for the next character
-            currentCoords = Coordinate2D((i * self.maxCharWidth % imageWidth),
-                                         (i * self.maxCharWidth // imageWidth) * self.maxCharHeight)
+            currentCoords = helpers.Coordinate2D((i * self.maxCharWidth % imageWidth),
+                                                 (i * self.maxCharWidth // imageWidth) * self.maxCharHeight)
 
             # Process the character at these coordinates
             processCharacter(constant.ALPHABET[i], currentCoords)
@@ -67,23 +62,12 @@ class OCR:
         # Set the length of the space character
         self.charLengths[' '] = self.__spaceLength
 
-    def recognizeLetter(self, loadedImage: PyAccess, coords: Coordinate2D):
+    def recognizeLetter(self, loadedImage: PyAccess, coords: helpers.Coordinate2D):
         possibleChars = constant.ALPHABET
         colors = constant.COLORS
 
         # FIXME: This will have a potential error as if the letter is recognized on pixel (7, 7),
         # FIXME: there will be no chance to return it.
-
-        # Define a function that returns true if the pixel matches on of the colors in colorArr.
-        def colorMatches(pixel, colorArr):
-            # print("Pixel color: " + str(pixel))
-            for color in colorArr:
-                if pixel == color:
-                    # print("Color match")
-                    return True
-
-            # ("No color match")
-            return False
 
         # Iterate through every pixel in the character until we know exactly which character it is.
         for x in range(8):
@@ -96,17 +80,17 @@ class OCR:
                 # If there is only 1 possible character remaining, the input must be that character.
                 if len(possibleChars) == 1:
                     # print("The answer is:" + str(possibleChars))
-                    return RecognizedCharacter(possibleChars[0], colors)
+                    return helpers.RecognizedCharacter(possibleChars[0], colors)
                 # If no character could be recognized, return the empty string
                 elif len(possibleChars) == 0:
                     # print("Could not recognize character at " + str((coords[0], coords[1])))
-                    return RecognizedCharacter('', None)
+                    return helpers.RecognizedCharacter('', None)
                 else:
                     currentX = coords.x + x * self.dotSize
                     currentY = coords.y + y * self.dotSize
                     # print(currentX)
                     # print(currentY)
-                    if colorMatches(loadedImage[currentX, currentY], colors):
+                    if helpers.colorMatches(loadedImage[currentX, currentY], colors):
                         colors = [loadedImage[currentX, currentY]]
                         possibleChars = np.intersect1d(possibleChars, self.possibleCharsMatrix[x][y])
                     else:  # There is no pixel of the colors we care about at the current coordinates
@@ -115,16 +99,13 @@ class OCR:
         if len(possibleChars) == 1:
             # ("The answer is:")
             # print(possibleChars)
-            return RecognizedCharacter(possibleChars[0], colors)
+            return helpers.RecognizedCharacter(possibleChars[0], colors)
         else:  # If no character could be recognized, return the empty string
             # print("Could not recognize character at " + str((coords[0], coords[1])))
-            return RecognizedCharacter('', None)
+            return helpers.RecognizedCharacter('', None)
 
-    def processImage(self, image: Image):
-        imgWidth, imgHeight = image.size
-        loadedImage = image.load()
-
-        coords = Coordinate2D(0, 0)
+    def processLoadedImage(self, coords: helpers.Coordinate2D, imgWidth: int, imgHeight: int, loadedImage: PyAccess,
+                           endEarly: bool):
         text = []
         currentLine = []
 
@@ -144,22 +125,26 @@ class OCR:
                 if len(currentLine) != 0:
                     for _ in range(emptyColumnCount // self.charLengths[' ']):
                         # print("Added space")
-                        currentLine.append(RecognizedCharacter(' ', []))
+                        currentLine.append(helpers.RecognizedCharacter(' ', []))
                 emptyColumnCount = 0
 
                 currentLine.append(nextChar)
                 coords.x += (self.charLengths[nextChar.character] + 1) * self.dotSize
 
-            if coords.x >= imgWidth:
+            if coords.x >= imgWidth or (len(currentLine) == 0 and emptyColumnCount > 15):
                 coords.y += (self.dotSize * (self.maxCharHeight + self.__lineSpacing))
                 coords.x = 0
-                text.append(currentLine)
+                if len(currentLine) != 0:
+                    text.append(currentLine)
                 currentLine = []
 
         return text
 
-    # def recognizeDamage(self):
-    # TODO
+    def processImage(self, image: Image):
+        imgWidth, imgHeight = image.size
+        loadedImage = image.load()
+        coords = helpers.Coordinate2D(0, 0)
+        return self.processLoadedImage(coords, imgWidth, imgHeight, loadedImage)
 
 # a = OCR(Image.open('D:\\Python\\AnniScraper\\ascii.png'))
 # img = Image.open('D:\\Python\\AnniScraper\\score.png')
