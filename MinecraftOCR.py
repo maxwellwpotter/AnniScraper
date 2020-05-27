@@ -2,6 +2,7 @@ import numpy as np
 from PIL import PyAccess
 from PIL import Image
 from PIL import ImageGrab
+import time
 
 import constant
 import helpers
@@ -62,7 +63,7 @@ class OCR:
         # Set the length of the space character
         self.charLengths[' '] = self.__spaceLength
 
-    def recognizeLetter(self, loadedImage: PyAccess, coords: helpers.Coordinate2D):
+    def recognizeLetter(self, loadedImage, coords: helpers.Coordinate2D):
         possibleChars = constant.ALPHABET
         colors = constant.COLORS
 
@@ -104,13 +105,13 @@ class OCR:
             # print("Could not recognize character at " + str((coords[0], coords[1])))
             return helpers.RecognizedCharacter('', None)
 
-    def processLoadedImage(self, coords: helpers.Coordinate2D, imgWidth: int, imgHeight: int, loadedImage: PyAccess,
-                           endEarly: bool):
+    def processLoadedImage(self, coords: helpers.Coordinate2D, loadedImage: PyAccess, endEarly: bool = True):
+        imageWidth, imageHeight, bandCount = np.shape(loadedImage)
         text = []
         currentLine = []
 
         emptyColumnCount = 0
-        while coords.y < imgHeight:
+        while coords.y < imageHeight:
             # print(coords)
             nextChar = self.recognizeLetter(loadedImage, coords)
             # print(nextChar)
@@ -131,7 +132,7 @@ class OCR:
                 currentLine.append(nextChar)
                 coords.x += (self.charLengths[nextChar.character] + 1) * self.dotSize
 
-            if coords.x >= imgWidth or (len(currentLine) == 0 and emptyColumnCount > 15):
+            if coords.x >= imageWidth or (len(currentLine) == 0 and emptyColumnCount > 15) or (endEarly and emptyColumnCount > 10):
                 coords.y += (self.dotSize * (self.maxCharHeight + self.__lineSpacing))
                 coords.x = 0
                 if len(currentLine) != 0:
@@ -140,11 +141,11 @@ class OCR:
 
         return text
 
-    def processImage(self, image: Image):
+    def processImage(self, image: Image, endEarly: bool = True):
         imgWidth, imgHeight = image.size
-        loadedImage = image.load()
+        loadedImage = np.swapaxes(np.asarray(image), 0, 1)
         coords = helpers.Coordinate2D(0, 0)
-        return self.processLoadedImage(coords, imgWidth, imgHeight, loadedImage)
+        return self.processLoadedImage(coords, loadedImage, endEarly)
 
 # a = OCR(Image.open('D:\\Python\\AnniScraper\\ascii.png'))
 # img = Image.open('D:\\Python\\AnniScraper\\score.png')

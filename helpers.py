@@ -5,13 +5,12 @@ from recordclass import recordclass
 def colorMatches(pixel, colorArr):
     # print("Pixel color: " + str(pixel))
     for color in colorArr:
-        if pixel == color:
-            # print("Color match")
+        if pixel[0] == color[0] and pixel[1] == color[1] and pixel[2] == color[2]:
             return True
-
-    # ("No color match")
+    # print("No color match")
     return False
 
 
 Coordinate2D = recordclass('Coordinate2D', 'x y')
 RecognizedCharacter = recordclass('RecognizedCharacter', 'character colors')
+DamageDealt = recordclass('DamageDealt', 'player playerTeam damagedNexus')
