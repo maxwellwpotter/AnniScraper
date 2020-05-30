@@ -11,6 +11,10 @@ import helpers
 class OCR:
     __lineSpacing = 1
     __spaceLength = 4
+    recognizeLetterChecks = 0
+    recognizeLetterCalls = 0
+
+    #FIXME:
 
     def __init__(self, alphabetImage: Image, charHeight: int, charWidth: int, dotSize: int):
         self.maxCharHeight = charHeight
@@ -19,14 +23,14 @@ class OCR:
 
         # Figure out a way of telling each character apart
         # Create a matrix that will store for every coordinate all characters that have a pixel at there
-        self.possibleCharsMatrix = [[[] for _ in range(self.maxCharHeight)] for _ in range(self.maxCharWidth)]
+        self.possibleCharsMatrix = np.zeros((self.maxCharHeight, self.maxCharWidth, len(constant.ALPHABET)), dtype=bool)
 
         # Dictionary to store how many dots wide every character is
         self.charLengths = {}
 
         # Load the image into an array for easier processing
         # This isn't the most efficient way to do this, but it should be fine for now.
-        alphabetImgArr = alphabetImage.load()
+        alphabetImgArr = np.swapaxes(np.asarray(alphabetImage), 0, 1)
 
         # For the given alphabet, figure out how to recognize each character.
 
@@ -37,15 +41,15 @@ class OCR:
         # Function to process the pixels of a given character
         # Takes a string representing the character and the coordinates of the top left of the character.
         def processCharacter(char: str, coords: helpers.Coordinate2D):
+            alphabetIndex = constant.ALPHABET_INDICES[char]
             lastColumnWithPixel = 0
-            for x in range(0, self.maxCharWidth):
+            for x in range(self.maxCharWidth):
 
-                for y in range(0, self.maxCharHeight):
-
+                for y in range(self.maxCharHeight):
                     currentX = coords.x + x
                     currentY = coords.y + y
-                    if alphabetImgArr[currentX, currentY][3] != 0:
-                        self.possibleCharsMatrix[x][y].append(char)
+                    if alphabetImgArr[currentX, currentY, 3] != 0:
+                        self.possibleCharsMatrix[x, y, alphabetIndex] = True
                         lastColumnWithPixel = x + 1
 
             self.charLengths[char] = lastColumnWithPixel
@@ -64,17 +68,23 @@ class OCR:
         self.charLengths[' '] = self.__spaceLength
 
     def recognizeLetter(self, loadedImage, coords: helpers.Coordinate2D):
+        self.recognizeLetterCalls += 1
+        dotSize = self.dotSize
+        x = coords.x
+        y = coords.y
+
+        # FIXME: will error if the character is not deduced until the final check
+
         possibleChars = constant.ALPHABET
         colors = constant.COLORS
-
-        # FIXME: This will have a potential error as if the letter is recognized on pixel (7, 7),
-        # FIXME: there will be no chance to return it.
-
         # Iterate through every pixel in the character until we know exactly which character it is.
-        for x in range(8):
-            for y in range(8):
+        for dx in range(self.maxCharWidth):
+            for dy in range(self.maxCharHeight):
+                self.recognizeLetterChecks += 1
+                # print("Current (dx, dy): " + str((dx, dy)))
                 # print("Possible characters:")
                 # print(possibleChars)
+                # print(self.possibleCharsMatrix[dx, dy])
                 # print("Current colors: " + str(colors))
                 # print("Current (x, y): " + str((x, y)))
                 # print(str(len(possibleChars)) + " possible characters remaining.")
@@ -84,34 +94,44 @@ class OCR:
                     return helpers.RecognizedCharacter(possibleChars[0], colors)
                 # If no character could be recognized, return the empty string
                 elif len(possibleChars) == 0:
-                    # print("Could not recognize character at " + str((coords[0], coords[1])))
+                    # print("Could not recognize character at " + str((x, y)))
                     return helpers.RecognizedCharacter('', None)
                 else:
-                    currentX = coords.x + x * self.dotSize
-                    currentY = coords.y + y * self.dotSize
+                    currentX = x + dx * dotSize
+                    currentY = y + dy * dotSize
                     # print(currentX)
                     # print(currentY)
+
+                    def findNewPossibleChars(pixelPresent: bool):
+                        newPossibleChars = np.empty(len(possibleChars), dtype=str)
+                        nextIndex = 0
+                        for c in possibleChars:
+                            if pixelPresent == self.possibleCharsMatrix[dx, dy, constant.ALPHABET_INDICES[c]]:
+                                newPossibleChars[nextIndex] = c
+                                nextIndex += 1
+                        return newPossibleChars[:nextIndex]
+
                     if helpers.colorMatches(loadedImage[currentX, currentY], colors):
-                        colors = [loadedImage[currentX, currentY]]
-                        possibleChars = np.intersect1d(possibleChars, self.possibleCharsMatrix[x][y])
+                        # print('Pixel found!')
+                        # print('Intersecting')
+                        if len(colors) > 1:
+                            colors = [loadedImage[currentX, currentY]]
+
+                        possibleChars = findNewPossibleChars(True)
                     else:  # There is no pixel of the colors we care about at the current coordinates
-                        possibleChars = np.setdiff1d(possibleChars, self.possibleCharsMatrix[x][y])
+                        # print('Set diffing')
+                        possibleChars = findNewPossibleChars(False)
 
-        if len(possibleChars) == 1:
-            # ("The answer is:")
-            # print(possibleChars)
-            return helpers.RecognizedCharacter(possibleChars[0], colors)
-        else:  # If no character could be recognized, return the empty string
-            # print("Could not recognize character at " + str((coords[0], coords[1])))
-            return helpers.RecognizedCharacter('', None)
+        print('We shouldnt be here!')
 
-    def processLoadedImage(self, coords: helpers.Coordinate2D, loadedImage: PyAccess, endEarly: bool = True):
+    def processLoadedImage(self, coords: helpers.Coordinate2D, loadedImage: PyAccess, preciseStart: bool = True,
+                           trailingEnd: bool = True):
         imageWidth, imageHeight, bandCount = np.shape(loadedImage)
         text = []
         currentLine = []
 
         emptyColumnCount = 0
-        while coords.y < imageHeight:
+        while imageHeight - coords.y >= self.maxCharHeight:
             # print(coords)
             nextChar = self.recognizeLetter(loadedImage, coords)
             # print(nextChar)
@@ -132,7 +152,8 @@ class OCR:
                 currentLine.append(nextChar)
                 coords.x += (self.charLengths[nextChar.character] + 1) * self.dotSize
 
-            if coords.x >= imageWidth or (len(currentLine) == 0 and emptyColumnCount > 15) or (endEarly and emptyColumnCount > 10):
+            if coords.x >= imageWidth or (emptyColumnCount > 10 and (preciseStart and len(currentLine) == 0 or
+                                                                     trailingEnd and len(currentLine) != 0)):
                 coords.y += (self.dotSize * (self.maxCharHeight + self.__lineSpacing))
                 coords.x = 0
                 if len(currentLine) != 0:
@@ -141,11 +162,11 @@ class OCR:
 
         return text
 
-    def processImage(self, image: Image, endEarly: bool = True):
-        imgWidth, imgHeight = image.size
+    def processImage(self, image: Image, preciseStart: bool = True, endEarly: bool = True):
+        s = time.perf_counter()
         loadedImage = np.swapaxes(np.asarray(image), 0, 1)
         coords = helpers.Coordinate2D(0, 0)
-        return self.processLoadedImage(coords, loadedImage, endEarly)
+        return self.processLoadedImage(coords, loadedImage, preciseStart, endEarly)
 
 # a = OCR(Image.open('D:\\Python\\AnniScraper\\ascii.png'))
 # img = Image.open('D:\\Python\\AnniScraper\\score.png')

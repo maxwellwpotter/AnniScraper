@@ -1,15 +1,28 @@
 from PIL import Image
+import numpy as np
 
-TEAM_HEALTH_RECTANGLE = (1746, 483, 1746+170, 483+70)
-HIT_NOTIFICATION_RECTANGLE = (652, 897, 652+614, 897+16)
-CHAT_RECTANGLE = (4, 603, 4+648, 603+358)
-PHASE_RECTANGLE = (832, 29, 832+261, 29+16)
+# Rectangles for optimized resource pack
+TEAM_HEALTH_RECTANGLE = (1746+70, 483, 1746+170, 483+70)
+HIT_NOTIFICATION_RECTANGLE = (927, 897, 927+65, 897+15)
+PHASE_RECTANGLE = (922, 29, 922+74, 29+16)
 
-ALPHABET = (' ', '!', '"', '#', '$', '%', '&', "'", '(', ')', '*', '+', ',', '-', '.', '/', '0', '1', '2', '3', '4',
-            '5', '6', '7', '8', '9', ':', ';', '<', '=', '>', '?', '@', 'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I',
-            'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z', '[', '\\', ']', '^',
-            '_', '`', 'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o', 'p', 'q', 'r', 's',
-            't', 'u', 'v', 'w', 'x', 'y', 'z', '{', '|', '}', '~', '_')
+# Rectangle for default resource pack
+# TEAM_HEALTH_RECTANGLE = (1746, 483, 1746 + 170, 483 + 70)
+# HIT_NOTIFICATION_RECTANGLE = (652, 897, 652 + 614, 897 + 16)
+# PHASE_RECTANGLE = (832, 29, 832 + 261, 29 + 16)
+
+CHAT_RECTANGLE = (4, 603, 4 + 648, 603 + 358)
+
+# CHAT_TOP_RECTANGLE = (4, 603, 4 + 648, 603+178)
+# CHAT_BOTTOM_RECTANGLE = (4, 783, 4 + 648, 603+178)
+
+ALPHABET = np.array(
+    (' ', '!', '"', '#', '$', '%', '&', "'", '(', ')', '*', '+', ',', '-', '.', '/', '0', '1', '2', '3', '4',
+     '5', '6', '7', '8', '9', ':', ';', '<', '=', '>', '?', '@', 'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I',
+     'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z', '[', '\\', ']', '^',
+     '_', '`', 'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o', 'p', 'q', 'r', 's',
+     't', 'u', 'v', 'w', 'x', 'y', 'z', '{', '|', '}', '~', 'Δ'), dtype=str)
+ALPHABET_INDICES = dict(zip(ALPHABET, range(len(ALPHABET))))
 
 WHITE = (255, 255, 255)
 GRAY = (170, 170, 170)
