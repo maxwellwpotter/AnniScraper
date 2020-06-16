@@ -5,7 +5,6 @@ from PIL import ImageGrab
 import time
 
 import constant
-import helpers
 
 
 def colorMatches(pixel, colorArr):
@@ -52,14 +51,14 @@ class OCR:
 
         # Function to process the pixels of a given character
         # Takes a string representing the character and the coordinates of the top left of the character.
-        def processCharacter(char: str, coords: helpers.Coordinate2D):
+        def processCharacter(char: str, globalX, globalY):
             alphabetIndex = constant.ALPHABET_INDICES[char]
             lastColumnWithPixel = 0
             for x in range(self.maxCharWidth):
 
                 for y in range(self.maxCharHeight):
-                    currentX = coords.x + x
-                    currentY = coords.y + y
+                    currentX = globalX + x
+                    currentY = globalY + y
                     if alphabetImgArr[currentX, currentY, 3] != 0:
                         self.possibleCharsMatrix[x, y, alphabetIndex] = True
                         lastColumnWithPixel = x + 1
@@ -70,11 +69,11 @@ class OCR:
         imageWidth, imageHeight = alphabetImage.size
         for i in range(len(constant.ALPHABET)):
             # Calculate the coordinates for the next character
-            currentCoords = helpers.Coordinate2D((i * self.maxCharWidth % imageWidth),
+            currentCoords = ((i * self.maxCharWidth % imageWidth),
                                                  (i * self.maxCharWidth // imageWidth) * self.maxCharHeight)
 
             # Process the character at these coordinates
-            processCharacter(constant.ALPHABET[i], currentCoords)
+            processCharacter(constant.ALPHABET[i], *currentCoords)
 
         # Set the length of the space character
         self.charLengths[' '] = spaceLength

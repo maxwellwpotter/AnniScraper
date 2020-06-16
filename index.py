@@ -2,7 +2,6 @@ import time
 
 import MinecraftOCR
 import constant
-import helpers
 import numpy as np
 import mysql.connector
 import pyautogui
@@ -12,17 +11,17 @@ from PIL import Image
 from PIL import ImageGrab
 
 # Initialize the OCR and a connection to the mysql server.
-ocr = MinecraftOCR.OCR(Image.open('D:\\Python\\AnniScraper\\data\\font.png'), 8, 8, 2)
+ocr = MinecraftOCR.OCR(Image.open('.\\data\\font.png'), 8, 8, 2)
 mydb = mysql.connector.connect(
-    host='localhost',
-    user='root',
+    host='192.168.1.9',
+    user='laptop',
     password='@Mart',
     database='mydb'
 )
 
 mycursor = mydb.cursor()
 
-print(ocr.readErrorMessage(Image.open('D:\\Python\\AnniScraper\\lastGrab.png')))
+#print(ocr.readErrorMessage(Image.open('.\\lastGrab.png')))
 
 
 print("waiting...")
