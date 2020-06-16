@@ -4,152 +4,169 @@ import MinecraftOCR
 import constant
 import helpers
 import numpy as np
-
-from multiprocessing import Process
+import mysql.connector
+import pyautogui
+from datetime import datetime
 
 from PIL import Image
 from PIL import ImageGrab
 
-# ocr = MinecraftOCR.OCR(Image.open('D:\\Python\\AnniScraper\\ascii.png'), 8, 8, 2)
-ocr = MinecraftOCR.OCR(Image.open('D:\\Python\\AnniScraper\\font.png'), 8, 8, 2)
+# Initialize the OCR and a connection to the mysql server.
+ocr = MinecraftOCR.OCR(Image.open('D:\\Python\\AnniScraper\\data\\font.png'), 8, 8, 2)
+mydb = mysql.connector.connect(
+    host='localhost',
+    user='root',
+    password='@Mart',
+    database='mydb'
+)
+
+mycursor = mydb.cursor()
+
+print(ocr.readErrorMessage(Image.open('D:\\Python\\AnniScraper\\lastGrab.png')))
 
 
-def convertToText(scrapedText):
-    processedText = []
-    for line in scrapedText:
-        processedLine = []
-        for char in line:
-            processedLine.append(char.character)
-        processedText.append(processedLine)
-    return processedText
-
-
-# Returns an array storing the health of each team formatted as [Blue, Green, Red, Yellow]
-def recognizeTeamHealth(image):
-    image = image.crop(constant.TEAM_HEALTH_RECTANGLE)
-    # image.save('score.png', 'PNG')
-
-    loadedImage = np.swapaxes(np.asarray(image), 0, 1)
-    # Figure out where the first line of health begins
-    # y = 0
-    # while not helpers.colorMatches(loadedImage[0, y], constant.TEAM_COLORS):
-    # y += 1
-
-    # FIXME
-    scrapedText = ocr.processLoadedImage(helpers.Coordinate2D(0, 0), loadedImage, False, False)
-
-    #print(convertToText(scrapedText))
-    # Pull out each team's health values
-    teamHealths = [0] * 4
-    switchCases = {
-        'B': 0,
-        'G': 1,
-        'R': 2,
-        'Y': 3
-    }
-
-    for line in scrapedText:
-        healthVal = int(line[len(line) - 2].character + line[len(line) - 1].character)
-        teamHealths[switchCases[line[0].character]] = healthVal
-
-    return teamHealths
-
-
-def recognizeDamageDealer(image):
-    image = image.crop(constant.HIT_NOTIFICATION_RECTANGLE)
-    # image.save('hit.png', 'PNG')
-    scrapingResults = ocr.processImage(image, False, True)
-
-    if scrapingResults:
-        scrapingResults = scrapingResults[0]
-
-        # Find the team that was damaged by checking the color of the first character
-        damagedTeam = constant.COLORS_DICT[tuple(scrapingResults[0].colors[0].tolist())]
-
-        chaffCharsCount = len(damagedTeam) + constant.HIT_MESSAGE_CHAFF_CHARS
-        # Find the team that did the damage by checking the  color of the first character of the player's name
-        playerTeam = constant.COLORS_DICT[tuple(scrapingResults[chaffCharsCount].colors[0].tolist())]
-        # Find the player's name
-        player = scrapingResults[chaffCharsCount: len(scrapingResults)]
-        playerName = ''
-        for char in player:
-            playerName += char.character
-
-        return helpers.DamageDealt(playerName, playerTeam, damagedTeam)
-
-    return helpers.DamageDealt(None, None, None)
-
-
-def recognizeChat(image):
-    image = image.crop(constant.CHAT_RECTANGLE)
-    # image.save('chat.png', 'PNG')
-    scrapingResults = ocr.processImage(image, True, True)
-    return convertToText(scrapingResults)
-
-
-def recognizePhase(image):
-    image = image.crop(constant.PHASE_RECTANGLE)
-    # image.save('phase.png', 'PNG')
-    scrapingResults = ocr.processImage(image, False, True)
-    return convertToText(scrapingResults)
-
-
-img = Image.open("D:\\Python\\AnniScraper\\testfour.png")
 print("waiting...")
-#time.sleep(2)
+time.sleep(2)
 print("done waiting")
 
-a = 0
-def collectData():
-    startTime = time.perf_counter()
+while True:
+    matchID = None
+    nextPlacing = 4
+    placings = [5, 5, 5, 5]
 
-    #img = ImageGrab.grab()
-    # print('ImageGrab took ' + str(time.perf_counter() - startTime))
+    def joinGame():
+        # Connect to the annihilation lobby
+        pyautogui.click(button='right')
+        time.sleep(0.5)
+        pyautogui.click(*constant.ANNI_LOBBY_LOCATION)
+        time.sleep(0.5)
+        pyautogui.click(*constant.ANNI_HUB_ONE_LOCATION)
+        while not backToLobby():
+            time.sleep(0.5)
 
-    #nextTime = time.perf_counter()
-    #print(recognizeTeamHealth(img))
-    #print('recognizeTeamHealth took ' + str(time.perf_counter() - nextTime))
+        # Continually scan through the servers until we find a game we want to join.
+        currentCoords = constant.SERVERS_START_LOCATION
+        gameFound = False
+        while not gameFound:
+            # Open up the server browser.
+            pyautogui.click(button='right')
+            time.sleep(0.5)
 
-    #nextTime = time.perf_counter()
-    #print(recognizeDamageDealer(img))
-    #print('recognizeDamageDealer took ' + str(time.perf_counter() - nextTime))
+            for _ in range(9):
+                pyautogui.moveTo(currentCoords)
+                img = ImageGrab.grab()
+                ocr.loadImage(img)
+                phase = ocr.recognizeCharacter(*np.add(currentCoords, constant.SERVERS_PHASE_OFFSET), colors=[constant.GREEN]).character
+                if phase == '1' or phase == '2':
+                    gameFound = True
+                    pyautogui.click()
+                    break
+                else:
+                    currentCoords = tuple(np.add(currentCoords, constant.SERVERS_SPACING))
+                    if currentCoords[0] > constant.SERVERS_END_LOCATION[0]:
+                        currentCoords = constant.SERVERS_START_LOCATION
 
-    #nextTime = time.perf_counter()
-    #print(recognizeChat(img))
-    #print('recognizeChat took ' + str(time.perf_counter() - nextTime))
+            if not gameFound:
+                pyautogui.press('esc')
+                time.sleep(30)
 
-    #nextTime = time.perf_counter()
-    #print(recognizePhase(img))
-    #print('recognizePhase took ' + str(time.perf_counter() - nextTime))
-
-    recognizeTeamHealth(img)
-    recognizeDamageDealer(img)
-    recognizeChat(img)
-    recognizePhase(img)
-
-    endTime = time.perf_counter()
-
-    #print('Took ' + str(endTime - startTime) + ' to process')
-    if endTime - startTime > 0.5:
-        print("AAAAAAAAAAAAAAA")
-        global a
-        a += 1
+        # Wait 5 seconds before continuing to make sure the server is joined
+        time.sleep(5)
 
 
-# Run collectData once to make sure it is compiled before we profile it's speed
-collectData()
+    def createMatch():
+        initialImg = ImageGrab.grab()
+        initialImg.save('lastGrab.png', 'PNG')
+        ocr.loadImage(initialImg)
 
-totalStartTime = time.perf_counter()
+        matchID = datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]
+        mapName = ocr.recognizeMap()
+        joinPhaseInfo = ocr.recognizePhase()
 
-for _ in range(100):
-    startTime = time.perf_counter()
-    collectData()
-    processingTime = time.perf_counter() - startTime
-    if processingTime < 0.5:
-        time.sleep(0.5 - processingTime)
+        sql = "INSERT INTO matches (matchID, map, joinPhase, joinTime) VALUES (%s, %s, %s, %s)"
+        mycursor.execute(sql, (matchID, mapName, *joinPhaseInfo))
+        mydb.commit()
 
-print('recognizeLetter called ' + str(ocr.recognizeLetterCalls) + ' times.')
-print('recognizeLetter used ' + str(ocr.recognizeLetterChecks / ocr.recognizeLetterCalls) + ' checks average.')
+        return matchID
 
-print('Took ' + str(time.perf_counter() - totalStartTime) + ' of processing time')
-print(a)
+
+    def collectData():
+        shotTime = datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]
+        img = ImageGrab.grab()
+        img.save('lastGrab.png', 'PNG')
+        ocr.loadImage(img)
+        disconnected = ocr.recognizeDisconnection()
+        if disconnected:
+            return True, disconnected
+
+        health = ocr.recognizeHealth()
+        damage = ocr.recognizeDamage()
+        kills = ocr.recognizeKills()
+        bossKill = ocr.recognizeBossKill()
+        phase = ocr.recognizePhase()
+
+        print(health)
+        print(damage)
+        print(kills)
+        print(bossKill)
+        print(phase)
+
+        snapshotSQL = "INSERT INTO snapshots VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)"
+        mycursor.execute(snapshotSQL, (matchID, shotTime, *health, *damage, *bossKill, *phase))
+
+        killsSQL = "INSERT INTO kills VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)"
+        for index in range(len(kills)):
+            mycursor.execute(killsSQL, (matchID, shotTime, index, *kills[index]))
+        mydb.commit()
+
+        deadTeamCount = 0
+        for teamIndex in range(4):
+            if health[teamIndex] == ' 0' or health[teamIndex] == 0:
+                deadTeamCount += 1
+                if placings[teamIndex] == 5:
+                    global nextPlacing
+                    placings[teamIndex] = nextPlacing
+                    nextPlacing -= 1
+
+        return deadTeamCount >= 3, False
+
+    def backToLobby():
+        img = ImageGrab.grab()
+        img.save('lastGrab.png', 'PNG')
+        ocr.loadImage(img)
+        return ocr.recognizeLobby()
+
+
+    def reconnect():
+        pyautogui.click(*constant.BACK_TO_SERVERS_LOCATION)
+        time.sleep(3600)
+        pyautogui.click(*constant.SHOTBOW_LOCATION, clicks=2)
+
+    # Find and join a game.
+    joinGame()
+
+    # Create the row for this match in the database
+    matchID = createMatch()
+
+    # The start collecting data
+    matchDone = False
+    crashed = False
+    while not matchDone and not crashed:
+        startTime = time.perf_counter()
+        matchDone, crashed = collectData()
+        processingTime = time.perf_counter() - startTime
+        print('Took ' + str(processingTime))
+        if processingTime < 0.5:
+            time.sleep(0.5 - processingTime)
+
+    if matchDone:
+        endMatchSQL = 'UPDATE matches ' \
+                      'SET bluePlacing = %s, greenPlacing = %s, redPlacing = %s, yellowPlacing = %s ' \
+                      'WHERE matchID = %s'
+        mycursor.execute(endMatchSQL, (*placings, matchID))
+        mydb.commit()
+        # Wait until we get moved to the lobby before continuing
+        while not backToLobby():
+            time.sleep(0.5)
+    else:
+        reconnect()

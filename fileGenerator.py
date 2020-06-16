@@ -8,10 +8,11 @@ for num in range(96):
 
     binary = format(num, "07b")
     print(binary)
+    img.putpixel((x, y), (255, 255, 255, 255))
     for i in range(7):
         print(binary[-1 - i])
         if binary[-1 - i] == '1':
             print('Got in if')
-            img.putpixel((x, y + i), (255, 255, 255, 255))
+            img.putpixel((x, y + i + 1), (255, 255, 255, 255))
 
 img.save('font.png', 'PNG')
