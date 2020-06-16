@@ -121,11 +121,11 @@ class OCR:
                 # Then, if there is only 1 possible character remaining, the input must be that character.
                 if len(possibleChars) == 1:
                     # print("The answer is:" + str(possibleChars))
-                    return helpers.RecognizedCharacter(possibleChars[0], colors)
+                    return possibleChars[0]
                 # If no character could be recognized, return the empty string
                 elif len(possibleChars) == 0:
                     # print("Could not recognize character at " + str((x, y)))
-                    return helpers.RecognizedCharacter('', None)
+                    return ''
 
         print("We shouldn't be here!")
 
@@ -133,7 +133,7 @@ class OCR:
         name = ''
         nameLength = 0
         while nameLength < 16:
-            nextCharacter = self.recognizeCharacter(globalX, globalY, [color]).character
+            nextCharacter = self.recognizeCharacter(globalX, globalY, [color])
             # If nextCharacter is an invalid character for a name, then we are done.
             if nextCharacter == '(' or nextCharacter == ' ' or nextCharacter == '':
                 break
@@ -147,7 +147,7 @@ class OCR:
         classAcronym = ''
         classAcronymLength = 0
         for _ in range(3):
-            nextCharacter = self.recognizeCharacter(globalX, globalY, [color]).character
+            nextCharacter = self.recognizeCharacter(globalX, globalY, [color])
             classAcronym += nextCharacter
             classAcronymLength += 1
             globalX += (self.charLengths[nextCharacter] + 1) * self.dotSize
@@ -172,8 +172,8 @@ class OCR:
             rankCoordinates.append((currentCoords[0] - 8, currentCoords[1]))
 
             # Read in the health at our current coordinates
-            healthTens = self.recognizeCharacter(currentCoords[0] - 4, currentCoords[1], [constant.RED]).character
-            healthOnes = self.recognizeCharacter(*currentCoords, colors=[constant.RED]).character
+            healthTens = self.recognizeCharacter(currentCoords[0] - 4, currentCoords[1], [constant.RED])
+            healthOnes = self.recognizeCharacter(*currentCoords, colors=[constant.RED])
             healthValues[currentRank] = healthTens + healthOnes
             currentRank += 1
 
@@ -265,7 +265,7 @@ class OCR:
             if not colorMatches(killerColor, constant.TEAM_COLORS):
                 if colorMatches(killerColor, [constant.GOLD]):
                     # Read in the first character so we can figure out which boss this was
-                    firstCharacter = self.recognizeCharacter(*currentLineStart, colors=[constant.GOLD]).character
+                    firstCharacter = self.recognizeCharacter(*currentLineStart, colors=[constant.GOLD])
                     boss = None
                     if firstCharacter == 'T':
                         boss = 'Wither'
@@ -290,7 +290,7 @@ class OCR:
             # Find the name and class of the killer
             killerName, currentCoords = self.readName(*currentLineStart, color=killerColor)
             # Verify that the next character is a '('
-            if self.recognizeCharacter(*currentCoords, colors=[killerColor]).character != '(':
+            if self.recognizeCharacter(*currentCoords, colors=[killerColor]) != '(':
                 continue
             # Shift currentCoords over one '(' character.
             currentCoords = (currentCoords[0] + (self.charLengths['('] + 1) * self.dotSize, currentCoords[1])
@@ -300,7 +300,7 @@ class OCR:
             # Shift currentCoords over one '(' and one ' ' character.
             currentCoords = (currentCoords[0] + 6 * self.dotSize, currentCoords[1])
             meleeKill = True
-            nextCharacter = self.recognizeCharacter(*currentCoords, colors=[constant.GRAY]).character
+            nextCharacter = self.recognizeCharacter(*currentCoords, colors=[constant.GRAY])
             if nextCharacter == 's':
                 meleeKill = False
                 # Either way, move currentCoords over the appropriate amount
@@ -319,7 +319,7 @@ class OCR:
             # Shift currentCoords over one '(' and one ' ' character
             currentCoords = (currentCoords[0] + 6 * self.dotSize, currentCoords[1])
             attackingNexus = None
-            nextCharacter = self.recognizeCharacter(*currentCoords, colors=[constant.GRAY]).character
+            nextCharacter = self.recognizeCharacter(*currentCoords, colors=[constant.GRAY])
             # Either way, shift currentCoords over the appropriate amount.
             if nextCharacter == 'a':
                 attackingNexus = True
@@ -374,7 +374,7 @@ class OCR:
         currentCoords = (currentCoords[0] + 14 * self.dotSize, currentCoords[1])
 
         # Read the phase.
-        phase = self.recognizeCharacter(*currentCoords, colors=[constant.WHITE]).character
+        phase = self.recognizeCharacter(*currentCoords, colors=[constant.WHITE])
 
         # Shift currentCoords over the length of ' - '.
         currentCoords = (currentCoords[0] + 12 * self.dotSize, currentCoords[1])
@@ -382,11 +382,11 @@ class OCR:
         # Read the time.
         # Read in all the characters and put them into an array.
         timeArr = []
-        nextCharacter = self.recognizeCharacter(*currentCoords, colors=[constant.WHITE]).character
+        nextCharacter = self.recognizeCharacter(*currentCoords, colors=[constant.WHITE])
         while nextCharacter != ' ' and nextCharacter != '':
             timeArr.append(nextCharacter)
             currentCoords = (currentCoords[0] + (self.charLengths[nextCharacter] + 1) * self.dotSize, currentCoords[1])
-            nextCharacter = self.recognizeCharacter(*currentCoords, colors=[constant.WHITE]).character
+            nextCharacter = self.recognizeCharacter(*currentCoords, colors=[constant.WHITE])
 
         phaseTime = ''.join(timeArr)
         if phaseTime == 'Bleed':
@@ -398,7 +398,7 @@ class OCR:
         currentCoords = constant.MAP_START_LOCATION
         mapName = ''
         while colorMatches(self.loadedImage[currentCoords], [constant.GOLD]):
-            nextChar = self.recognizeCharacter(*currentCoords, colors=[constant.GOLD]).character
+            nextChar = self.recognizeCharacter(*currentCoords, colors=[constant.GOLD])
             mapName = nextChar + mapName
             currentCoords = (currentCoords[0] - 3 * self.dotSize, currentCoords[1])
 
@@ -408,14 +408,14 @@ class OCR:
         globalX, globalY = constant.FIRST_ERROR_START_LOCATION
         topLine = ''
         for _ in range(15):
-            nextCharacter = self.recognizeCharacter(globalX, globalY, [constant.GRAY]).character
+            nextCharacter = self.recognizeCharacter(globalX, globalY, [constant.GRAY])
             topLine += nextCharacter
             globalX += (self.charLengths[nextCharacter] + 1) * self.dotSize
 
         globalX, globalY = constant.SECOND_ERROR_START_LOCATION
         bottomLine = ''
         for _ in range(12):
-            nextCharacter = self.recognizeCharacter(globalX, globalY, [constant.GRAY]).character
+            nextCharacter = self.recognizeCharacter(globalX, globalY, [constant.GRAY])
             bottomLine += nextCharacter
             globalX += (self.charLengths[nextCharacter] + 1) * self.dotSize
 
@@ -434,7 +434,7 @@ class OCR:
         topLine = ''
         topLineLength = 0
         for _ in range(100):
-            nextCharacter = self.recognizeCharacter(globalX, globalY, colors).character
+            nextCharacter = self.recognizeCharacter(globalX, globalY, colors)
             topLine += nextCharacter
             topLineLength += 1
             globalX += (self.charLengths[nextCharacter] + 1) * self.dotSize
@@ -443,7 +443,7 @@ class OCR:
         bottomLine = ''
         bottomLineLength = 0
         for _ in range(100):
-            nextCharacter = self.recognizeCharacter(globalX, globalY, colors).character
+            nextCharacter = self.recognizeCharacter(globalX, globalY, colors)
             bottomLine += nextCharacter
             bottomLineLength += 1
             globalX += (self.charLengths[nextCharacter] + 1) * self.dotSize

@@ -29,16 +29,15 @@ time.sleep(2)
 print("done waiting")
 
 while True:
-    matchID = None
     nextPlacing = 4
     placings = [5, 5, 5, 5]
 
     def joinGame():
         # Connect to the annihilation lobby
         pyautogui.click(button='right')
-        time.sleep(0.5)
+        time.sleep(1)
         pyautogui.click(*constant.ANNI_LOBBY_LOCATION)
-        time.sleep(0.5)
+        time.sleep(1)
         pyautogui.click(*constant.ANNI_HUB_ONE_LOCATION)
         while not backToLobby():
             time.sleep(0.5)
@@ -55,7 +54,7 @@ while True:
                 pyautogui.moveTo(currentCoords)
                 img = ImageGrab.grab()
                 ocr.loadImage(img)
-                phase = ocr.recognizeCharacter(*np.add(currentCoords, constant.SERVERS_PHASE_OFFSET), colors=[constant.GREEN]).character
+                phase = ocr.recognizeCharacter(*np.add(currentCoords, constant.SERVERS_PHASE_OFFSET), colors=[constant.GREEN])
                 if phase == '1' or phase == '2':
                     gameFound = True
                     pyautogui.click()
@@ -71,6 +70,7 @@ while True:
 
         # Wait 5 seconds before continuing to make sure the server is joined
         time.sleep(5)
+        print('Server joined')
 
 
     def createMatch():
@@ -82,10 +82,13 @@ while True:
         mapName = ocr.recognizeMap()
         joinPhaseInfo = ocr.recognizePhase()
 
+        print((matchID, mapName, *joinPhaseInfo))
+
         sql = "INSERT INTO matches (matchID, map, joinPhase, joinTime) VALUES (%s, %s, %s, %s)"
         mycursor.execute(sql, (matchID, mapName, *joinPhaseInfo))
         mydb.commit()
 
+        print('Match created')
         return matchID
 
 
@@ -127,6 +130,7 @@ while True:
                     placings[teamIndex] = nextPlacing
                     nextPlacing -= 1
 
+        print('Snapshot and kills added')
         return deadTeamCount >= 3, False
 
     def backToLobby():
