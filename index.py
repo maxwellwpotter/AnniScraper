@@ -13,16 +13,16 @@ from PIL import ImageGrab
 # Initialize the OCR and a connection to the mysql server.
 ocr = MinecraftOCR.OCR(Image.open('.\\data\\font.png'), 8, 8, 2)
 mydb = mysql.connector.connect(
-    host='192.168.1.9',
+    host='192.168.1.6',
     user='laptop',
     password='@Mart',
     database='mydb'
 )
 
 mycursor = mydb.cursor()
+# print(ocr.readErrorMessage(Image.open('.\\bad.png')))
 
-#print(ocr.readErrorMessage(Image.open('.\\lastGrab.png')))
-
+matchNumber = 1
 
 print("waiting...")
 time.sleep(2)
@@ -36,11 +36,12 @@ while True:
         # Connect to the annihilation lobby
         pyautogui.click(button='right')
         time.sleep(1)
-        pyautogui.click(*constant.ANNI_LOBBY_LOCATION)
+        pyautogui.moveTo(*constant.ANNI_LOBBY_LOCATION)
+        pyautogui.click()
         time.sleep(1)
-        pyautogui.click(*constant.ANNI_HUB_ONE_LOCATION)
-        while not backToLobby():
-            time.sleep(0.5)
+        pyautogui.moveTo(*constant.ANNI_HUB_ONE_LOCATION)
+        pyautogui.click()
+        time.sleep(3)
 
         # Continually scan through the servers until we find a game we want to join.
         currentCoords = constant.SERVERS_START_LOCATION
@@ -75,7 +76,9 @@ while True:
 
     def createMatch():
         initialImg = ImageGrab.grab()
-        initialImg.save('lastGrab.png', 'PNG')
+        global matchNumber
+        initialImg.save('matchStart%d.png' % matchNumber, 'PNG')
+        matchNumber += 1
         ocr.loadImage(initialImg)
 
         matchID = datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]
@@ -96,6 +99,7 @@ while True:
         shotTime = datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]
         img = ImageGrab.grab()
         img.save('lastGrab.png', 'PNG')
+        # img = Image.open('.\\lastGrab.png')
         ocr.loadImage(img)
         disconnected = ocr.recognizeDisconnection()
         if disconnected:
@@ -107,6 +111,7 @@ while True:
         bossKill = ocr.recognizeBossKill()
         phase = ocr.recognizePhase()
 
+        print(ocr.readName(978, 40, constant.WHITE))
         print(health)
         print(damage)
         print(kills)
@@ -163,6 +168,10 @@ while True:
             time.sleep(0.5 - processingTime)
 
     if matchDone:
+        for i in range(len(placings)):
+            if placings[i] == 5:
+                placings[i] = 1
+
         endMatchSQL = 'UPDATE matches ' \
                       'SET bluePlacing = %s, greenPlacing = %s, redPlacing = %s, yellowPlacing = %s ' \
                       'WHERE matchID = %s'

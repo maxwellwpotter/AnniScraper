@@ -165,7 +165,7 @@ class OCR:
 
         # Then, read in every nexus health, recording our coordinates each time
         currentRank = 0
-        healthValues = [0, 0, 0, 0]
+        healthValues = [None, None, None, None]
         rankCoordinates = []
         while colorMatches(self.loadedImage[currentCoords], [constant.RED, constant.WHITE]):
             # Record our current coordinates
@@ -332,7 +332,6 @@ class OCR:
             if attackingNexus is not None:
                 nexusColor = constant.COLORS_DICT[tuple(self.loadedImage[currentCoords])]
 
-            print(currentCoords)
             # Finally, compile all of this data into an array, and jam it into the kills array.
             result = [killerName, killerClass, constant.COLORS_DICT[killerColor], meleeKill,
                       killedName, killedClass, constant.COLORS_DICT[killedColor], attackingNexus, nexusColor]
@@ -412,14 +411,14 @@ class OCR:
             topLine += nextCharacter
             globalX += (self.charLengths[nextCharacter] + 1) * self.dotSize
 
-        globalX, globalY = constant.SECOND_ERROR_START_LOCATION
-        bottomLine = ''
-        for _ in range(12):
-            nextCharacter = self.recognizeCharacter(globalX, globalY, [constant.GRAY])
-            bottomLine += nextCharacter
-            globalX += (self.charLengths[nextCharacter] + 1) * self.dotSize
+        # globalX, globalY = constant.SECOND_ERROR_START_LOCATION
+        # bottomLine = ''
+        # for _ in range(12):
+        #     nextCharacter = self.recognizeCharacter(globalX, globalY, [constant.GRAY])
+        #     bottomLine += nextCharacter
+        #     globalX += (self.charLengths[nextCharacter] + 1) * self.dotSize
 
-        if topLine == 'Connection Lost' and bottomLine == 'Disconnected':
+        if topLine == 'Connection Lost':
             return True
         else:
             return
@@ -430,7 +429,7 @@ class OCR:
     def readErrorMessage(self, img):
         self.loadImage(img)
         colors = [constant.WHITE, constant.GRAY]
-        globalX, globalY = (900, 487)
+        globalX, globalY = (928, 482)
         topLine = ''
         topLineLength = 0
         for _ in range(100):
@@ -439,7 +438,7 @@ class OCR:
             topLineLength += 1
             globalX += (self.charLengths[nextCharacter] + 1) * self.dotSize
 
-        globalX, globalY = (900, 523)
+        globalX, globalY = (732, 519)
         bottomLine = ''
         bottomLineLength = 0
         for _ in range(100):
