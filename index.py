@@ -16,13 +16,14 @@ mydb = mysql.connector.connect(
     host='192.168.1.6',
     user='laptop',
     password='@Mart',
-    database='mydb'
+    database='anniscraper'
 )
 
 mycursor = mydb.cursor()
 # print(ocr.readErrorMessage(Image.open('.\\bad.png')))
 
 matchNumber = 1
+errorCount = 0
 
 print("waiting...")
 time.sleep(2)
@@ -100,43 +101,54 @@ while True:
         img = ImageGrab.grab()
         img.save('lastGrab.png', 'PNG')
         # img = Image.open('.\\lastGrab.png')
-        ocr.loadImage(img)
-        disconnected = ocr.recognizeDisconnection()
-        if disconnected:
-            return True, disconnected
 
-        health = ocr.recognizeHealth()
-        damage = ocr.recognizeDamage()
-        kills = ocr.recognizeKills()
-        bossKill = ocr.recognizeBossKill()
-        phase = ocr.recognizePhase()
+        try:
+            ocr.loadImage(img)
+            disconnected = ocr.recognizeDisconnection()
+            if disconnected:
+                return True, disconnected
 
-        print(ocr.readName(978, 40, constant.WHITE))
-        print(health)
-        print(damage)
-        print(kills)
-        print(bossKill)
-        print(phase)
+            health = ocr.recognizeHealth()
+            damage = ocr.recognizeDamage()
+            kills = ocr.recognizeKills()
+            bossKill = ocr.recognizeBossKill()
+            phase = ocr.recognizePhase()
 
-        snapshotSQL = "INSERT INTO snapshots VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)"
-        mycursor.execute(snapshotSQL, (matchID, shotTime, *health, *damage, *bossKill, *phase))
+            print(ocr.readName(978, 40, constant.WHITE))
+            print(health)
+            print(damage)
+            print(kills)
+            print(bossKill)
+            print(phase)
 
-        killsSQL = "INSERT INTO kills VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)"
-        for index in range(len(kills)):
-            mycursor.execute(killsSQL, (matchID, shotTime, index, *kills[index]))
-        mydb.commit()
+            snapshotSQL = "INSERT INTO snapshots VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)"
+            mycursor.execute(snapshotSQL, (matchID, shotTime, *health, *damage, *bossKill, *phase))
 
-        deadTeamCount = 0
-        for teamIndex in range(4):
-            if health[teamIndex] == ' 0' or health[teamIndex] == 0:
-                deadTeamCount += 1
-                if placings[teamIndex] == 5:
-                    global nextPlacing
-                    placings[teamIndex] = nextPlacing
-                    nextPlacing -= 1
+            killsSQL = "INSERT INTO kills VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)"
+            for index in range(len(kills)):
+                mycursor.execute(killsSQL, (matchID, shotTime, index, *kills[index]))
+            mydb.commit()
 
-        print('Snapshot and kills added')
-        return deadTeamCount >= 3, False
+            deadTeamCount = 0
+            for teamIndex in range(4):
+                if health[teamIndex] == ' 0' or health[teamIndex] == 0:
+                    deadTeamCount += 1
+                    if placings[teamIndex] == 5:
+                        global nextPlacing
+                        placings[teamIndex] = nextPlacing
+                        nextPlacing -= 1
+
+            print('Snapshot and kills added')
+            return deadTeamCount >= 3, False
+        except Exception as e:
+            print(e)
+            global errorCount
+            imageName = 'error' + str(errorCount) + '.png'
+            errorCount += 1
+            print("Failed to process this image, saving as " + imageName)
+            img.save(imageName, 'PNG')
+            return False, False
+
 
     def backToLobby():
         img = ImageGrab.grab()
