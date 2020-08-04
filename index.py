@@ -13,7 +13,7 @@ from PIL import ImageGrab
 # Initialize the OCR and a connection to the mysql server.
 ocr = MinecraftOCR.OCR(Image.open('.\\data\\font.png'), 8, 8, 2)
 mydb = mysql.connector.connect(
-    host='192.168.1.6',
+    host='10.0.0.29',
     user='laptop',
     password='@Mart',
     database='anniscraper'
